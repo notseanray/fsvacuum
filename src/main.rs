@@ -1,3 +1,5 @@
+use dirs::cache_dir;
+use dirs::home_dir;
 use ignore::DirEntry;
 use ignore::WalkBuilder;
 use ignore::WalkState::*;
@@ -16,12 +18,52 @@ lazy_static! {
     static ref TYPES: Vec<String> = parse_types(ARGS.to_vec());
 }
 
+fn clear_cache() {
+    if !ARGS.contains(&"clean".to_owned()) {
+        return;
+    }
+    let cache = cache_dir(); 
+    let cache_dir = match cache {
+        Some(v) => v,
+        None => home_dir().unwrap().join(".cache")
+    };
+    if !cache_dir.exists() {
+        panic!("could not find cache directory!");
+    }
+    if let Ok(_) = remove_dir_all(cache_dir.join("go-build")) {
+        println!("removed go-build cache");
+    }
+    if let Ok(_) = remove_dir_all(cache_dir.join("pylint")) {
+        println!("removed pylint cache");
+    }
+    if let Ok(_) = remove_dir_all(cache_dir.join("typescript")) {
+        println!("removed typescript cache");
+    }
+    if let Ok(_) = remove_dir_all(cache_dir.join("yarn")) {
+        println!("removed yarn cache");
+    }
+    if let Ok(_) = remove_dir_all(cache_dir.join("chromium")) {
+        println!("removed chromium cache");
+    }
+    if let Ok(_) = remove_dir_all(cache_dir.join("pip")) {
+        println!("removed pip cache");
+    }
+    if let Ok(_) = remove_dir_all(cache_dir.join("mozilla")) {
+        println!("removed firefox cache");
+    }
+}
+
 fn parse_types(args: Vec<String>) -> Vec<String> {
     let mut types = Vec::new();
     for arg in args {
         match arg.as_str() {
-            "rust" => types.push("target".to_string()),
-            "js" => types.push("node_modules".to_string()),
+            "rust" => types.push("target".to_owned()),
+            "js" => types.push("node_modules".to_owned()),
+            "zig" => {
+                types.push("zig-out".to_owned());
+                types.push("zig-cache".to_owned());
+            },
+            "cache" => clear_cache(),
             _ => {}
         }
     }
