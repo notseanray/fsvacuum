@@ -17,7 +17,7 @@ fsvacuum is a multithreaded file cleaner to recursively remove js/ts `node_modul
 Due to the nature of cargo and npm, project folder size can build up over time making it harder to backup projects and other files. 
 
 #### usage
-print out all folders that will be affected: `fsvacuum js` (current options are `js`, `zig`, `cache`, or `rust`)
+print out all folders that will be affected: `fsvacuum js` (current options are `js`, `zig`, `cache`, `nvim` (nvim swap), or `rust`)
 
 remove all affected folders: `fsvacuum clean rust` 
 

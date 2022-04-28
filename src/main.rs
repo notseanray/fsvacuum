@@ -7,7 +7,9 @@ use lazy_static::lazy_static;
 use num_cpus::get;
 use std::env;
 use std::ffi::OsStr;
+use std::fs::read_dir;
 use std::fs::remove_dir_all;
+use std::fs::remove_file;
 use std::path::Path;
 use std::path::PathBuf;
 use std::thread;
@@ -30,26 +32,43 @@ fn clear_cache() {
     if !cache_dir.exists() {
         panic!("could not find cache directory!");
     }
-    if let Ok(_) = remove_dir_all(cache_dir.join("go-build")) {
+    if remove_dir_all(cache_dir.join("go-build")).is_ok() {
         println!("removed go-build cache");
     }
-    if let Ok(_) = remove_dir_all(cache_dir.join("pylint")) {
+    if remove_dir_all(cache_dir.join("pylint")).is_ok() {
         println!("removed pylint cache");
     }
-    if let Ok(_) = remove_dir_all(cache_dir.join("typescript")) {
+    if remove_dir_all(cache_dir.join("typescript")).is_ok() {
         println!("removed typescript cache");
     }
-    if let Ok(_) = remove_dir_all(cache_dir.join("yarn")) {
+    if remove_dir_all(cache_dir.join("yarn")).is_ok() {
         println!("removed yarn cache");
     }
-    if let Ok(_) = remove_dir_all(cache_dir.join("chromium")) {
+    if remove_dir_all(cache_dir.join("chromium")).is_ok() {
         println!("removed chromium cache");
     }
-    if let Ok(_) = remove_dir_all(cache_dir.join("pip")) {
+    if remove_dir_all(cache_dir.join("pip")).is_ok() {
         println!("removed pip cache");
     }
-    if let Ok(_) = remove_dir_all(cache_dir.join("mozilla")) {
+    if remove_dir_all(cache_dir.join("mozilla")).is_ok() {
         println!("removed firefox cache");
+    }
+}
+
+fn nvim_swap() {
+    let read_dir = match read_dir(home_dir().unwrap().join(".local/share/nvim/swap")) {
+        Ok(v) => v,
+        Err(_) => return
+    };
+    for file in read_dir {
+        let path = file.unwrap().path();
+        if !ARGS.contains(&"clean".to_owned()) {
+            println!("found {:#?} in nvim swap", path);
+            return;
+        }
+        if remove_file(&path).is_ok() {
+            println!("removed {:#?} from nvim swap", path.file_name());
+        }
     }
 }
 
@@ -62,12 +81,13 @@ fn parse_types(args: Vec<String>) -> Vec<String> {
             "zig" => {
                 types.push("zig-out".to_owned());
                 types.push("zig-cache".to_owned());
-            },
+            }
+            "nvim" => nvim_swap(),
             "cache" => clear_cache(),
             _ => {}
         }
     }
-    if types.len() == 0 {
+    if types.is_empty() {
         println!("zero types detected, exiting");
         std::process::exit(0);
     }
@@ -82,7 +102,7 @@ fn handle_path(path: &Path, folder_name: &OsStr) {
     let nested: Vec<String> = path
         .display()
         .to_string()
-        .split("/")
+        .split('/')
         .map(|x| x.to_string())
         .collect();
     let mut count = 0;
@@ -96,7 +116,7 @@ fn handle_path(path: &Path, folder_name: &OsStr) {
         return;
     }
     if ARGS.contains(&"clean".to_string()) {
-        remove_dir_all(path).unwrap_or_else(|_| return);
+        remove_dir_all(path).unwrap_or(());
         println!("erased {:#?}", path);
         return;
     }
