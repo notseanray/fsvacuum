@@ -12,3 +12,7 @@ num_cpus = "1.13.1"
 crossbeam-channel = "0.5"
 lazy_static = "1.4.0"
 dirs = "4.0.0"
+
+[profile.release]
+lto = "fat"
+strip = true

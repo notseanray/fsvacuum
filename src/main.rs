@@ -49,6 +49,13 @@ fn clear_cache() {
     remove_type!(cache_dir, "chromium", "chromium");
     remove_type!(cache_dir, "pip", "pip");
     remove_type!(cache_dir, "mozilla", "firefox");
+    remove_type!(cache_dir, "expo", "RN expo");
+    remove_type!(cache_dir, "JetBrains", "JetBrains");
+    remove_type!(cache_dir, "rollup-plugin-rust", "rollup rust");
+    remove_type!(cache_dir, "nim", "nim");
+    remove_type!(cache_dir, "eas-cli", "eas");
+    remove_type!(cache_dir, "deno", "deno");
+    remove_type!(cache_dir, "esbuild", "esbuild");
 }
 
 fn nvim_swap() {
@@ -70,6 +77,18 @@ fn nvim_swap() {
     }
 }
 
+fn v_modules() {
+    let v_path =  home_dir().unwrap().join(".vmodules");
+    if !ARGS.contains(&"clean".to_owned()) {
+        println!("found v modules");
+        return;
+    }
+    if ARGS.contains(&"clean".to_string()) {
+        remove_dir_all(&v_path).unwrap_or(());
+        println!("erased {}", v_path.to_string_lossy());
+    }
+}
+
 fn parse_types(args: Vec<String>) -> Vec<&'static str> {
     let mut types = Vec::new();
     for arg in args {
@@ -80,6 +99,7 @@ fn parse_types(args: Vec<String>) -> Vec<&'static str> {
                 types.push("zig-out");
                 types.push("zig-cache");
             }
+            "v" => v_modules(),
             "nvim" => nvim_swap(),
             "cache" => clear_cache(),
             _ => {}
