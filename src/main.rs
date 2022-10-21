@@ -8,6 +8,7 @@ use num_cpus::get;
 use std::env;
 use std::ffi::OsStr;
 use std::fs::read_dir;
+
 use std::fs::remove_dir_all;
 use std::fs::remove_file;
 use std::path::Path;
@@ -17,70 +18,67 @@ use std::time::Instant;
 
 lazy_static! {
     static ref ARGS: Vec<String> = env::args().skip(1).collect();
-    static ref TYPES: Vec<String> = parse_types(ARGS.to_vec());
+    static ref TYPES: Vec<&'static str> = parse_types(ARGS.to_vec());
+}
+
+macro_rules! remove_type {
+    ($cache_dir: expr, $dir:expr, $name:expr) => {
+        if remove_dir_all($cache_dir.join($dir)).is_ok() {
+            println!("removed {} cache", $name);
+        }
+    };
 }
 
 fn clear_cache() {
     if !ARGS.contains(&"clean".to_owned()) {
         return;
     }
-    let cache = cache_dir(); 
+    let cache = cache_dir();
     let cache_dir = match cache {
         Some(v) => v,
-        None => home_dir().unwrap().join(".cache")
+        None => home_dir().unwrap().join(".cache"),
     };
     if !cache_dir.exists() {
         panic!("could not find cache directory!");
     }
-    if remove_dir_all(cache_dir.join("go-build")).is_ok() {
-        println!("removed go-build cache");
-    }
-    if remove_dir_all(cache_dir.join("pylint")).is_ok() {
-        println!("removed pylint cache");
-    }
-    if remove_dir_all(cache_dir.join("typescript")).is_ok() {
-        println!("removed typescript cache");
-    }
-    if remove_dir_all(cache_dir.join("yarn")).is_ok() {
-        println!("removed yarn cache");
-    }
-    if remove_dir_all(cache_dir.join("chromium")).is_ok() {
-        println!("removed chromium cache");
-    }
-    if remove_dir_all(cache_dir.join("pip")).is_ok() {
-        println!("removed pip cache");
-    }
-    if remove_dir_all(cache_dir.join("mozilla")).is_ok() {
-        println!("removed firefox cache");
-    }
+    remove_type!(cache_dir, "go-build", "go build");
+    remove_type!(cache_dir, "pylint", "pylint");
+    remove_type!(cache_dir, "pylint", "pylint");
+    remove_type!(cache_dir, "typescript", "typescript");
+    remove_type!(cache_dir, "yarn", "yarn");
+    remove_type!(cache_dir, "chromium", "chromium");
+    remove_type!(cache_dir, "pip", "pip");
+    remove_type!(cache_dir, "mozilla", "firefox");
 }
 
 fn nvim_swap() {
     let read_dir = match read_dir(home_dir().unwrap().join(".local/share/nvim/swap")) {
         Ok(v) => v,
-        Err(_) => return
+        Err(_) => return,
     };
     for file in read_dir {
         let path = file.unwrap().path();
         if !ARGS.contains(&"clean".to_owned()) {
-            println!("found {:#?} in nvim swap", path);
+            println!("found {} in nvim swap", path.to_string_lossy());
             return;
         }
         if remove_file(&path).is_ok() {
-            println!("removed {:#?} from nvim swap", path.file_name());
+            if let Some(name) = path.file_name() {
+                println!("removed {} from nvim swap", name.to_string_lossy());
+            }
         }
     }
 }
 
-fn parse_types(args: Vec<String>) -> Vec<String> {
+fn parse_types(args: Vec<String>) -> Vec<&'static str> {
     let mut types = Vec::new();
     for arg in args {
         match arg.as_str() {
-            "rust" => types.push("target".to_owned()),
-            "js" => types.push("node_modules".to_owned()),
+            "rust" => types.push("target"),
+            "js" => types.push("node_modules"),
             "zig" => {
-                types.push("zig-out".to_owned());
-                types.push("zig-cache".to_owned());
+                types.push("zig-out");
+                types.push("zig-cache");
             }
             "nvim" => nvim_swap(),
             "cache" => clear_cache(),
@@ -96,7 +94,7 @@ fn parse_types(args: Vec<String>) -> Vec<String> {
 
 fn handle_path(path: &Path, folder_name: &OsStr) {
     let name = folder_name.to_string_lossy().to_string();
-    if !TYPES.contains(&name) {
+    if !TYPES.contains(&name.as_str()) {
         return;
     }
     let nested: Vec<String> = path
@@ -107,20 +105,19 @@ fn handle_path(path: &Path, folder_name: &OsStr) {
         .collect();
     let mut count = 0;
     nested.iter().for_each(|x| {
-        if !TYPES.contains(x) {
-            return;
+        if TYPES.contains(&x.as_str()) {
+            count += 1;
         }
-        count += 1;
     });
     if count > 1 {
         return;
     }
     if ARGS.contains(&"clean".to_string()) {
         remove_dir_all(path).unwrap_or(());
-        println!("erased {:#?}", path);
+        println!("erased {}", path.to_string_lossy());
         return;
     }
-    println!("found path {:#?}", path);
+    println!("found path {}", path.to_string_lossy());
 }
 
 fn main() {
@@ -128,14 +125,11 @@ fn main() {
     let (tx, rx) = crossbeam_channel::bounded::<DirEntry>(100);
     let stdout_thread = thread::spawn(move || {
         for dent in rx {
-            match dent.file_type() {
-                Some(v) => {
-                    if v.is_file() {
-                        continue;
-                    }
+            if let Some(v) = dent.file_type() {
+                if v.is_file() {
+                    continue;
                 }
-                None => {}
-            };
+            }
             let current_path = PathBuf::from(dent.path());
             if current_path.exists() {
                 handle_path(dent.path(), dent.file_name());
@@ -160,7 +154,7 @@ fn main() {
     drop(tx);
     stdout_thread.join().unwrap();
     println!(
-        "done in {:#?} using {core_count} threads",
-        startup.elapsed()
+        "done in {} ms using {core_count} threads",
+        startup.elapsed().as_millis()
     );
 }
